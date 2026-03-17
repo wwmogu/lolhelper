@@ -18,23 +18,40 @@
 pnpm install
 ```
 
-在项目根目录创建 `.env`：
-
-```
-VITE_GLM_API_KEY=your_api_key_here
-```
-
 > API Key 申请：[智谱 BigModel 开放平台](https://open.bigmodel.cn/)
 
 ```bash
 pnpm dev
 ```
 
+打开页面后，在顶部「AI 兜底识别设置」中输入你自己的 GLM API Key。Key 仅保存在当前浏览器的 `localStorage`，不会参与构建，也不会上传到仓库。
+
 ## 构建
 
 ```bash
 pnpm build   # 产物在 dist/
 ```
+
+## 部署到 GitHub Pages
+
+可以，当前项目已经适配纯静态部署：
+
+- 页面主体是 React + Vite 静态站点
+- 查询数据来自本地 JSON
+- AI 只在本地匹配失败时调用，改成了用户运行时输入 API Key，不依赖服务端
+
+仓库中已包含 GitHub Pages workflow：推送到 `main` 后会自动构建并发布 `dist/`。
+
+首次启用时，在 GitHub 仓库设置中确认：
+
+1. `Settings -> Pages -> Build and deployment` 选择 `GitHub Actions`
+2. 默认分支为 `main`
+
+注意：
+
+- GitHub Pages 是公开静态托管，不能安全保存平台级 API Key
+- 现在的方案是让每个用户自行输入自己的 GLM API Key，仅在自己的浏览器里保存
+- 如果未来需要“免输入 Key”，就必须增加后端代理，不适合直接放在 Pages 上
 
 ## 数据说明
 
