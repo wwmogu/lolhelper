@@ -13,13 +13,14 @@
 - **数据静态化**：技能加点、海克斯强化、装备全部来自本地 JSON，不依赖 AI 生成
 - **AI 仅做兜底**：只在本地模糊匹配失败时，调用 GLM-4.7 识别英雄名（极短调用，max_tokens=20）
 - **无后端**：纯前端，浏览器直接调用 AI API
+- **Pages 兼容**：可直接部署到 GitHub Pages，API Key 由用户在运行时输入并保存在本地浏览器
 
 ### 技术栈
 
 - **前端**: React + TypeScript + Tailwind CSS
 - **构建**: Vite + pnpm
 - **AI**: 智谱 BigModel GLM-4.7（`https://open.bigmodel.cn/api/paas/v4/chat/completions`）
-- **API Key**: 环境变量 `VITE_GLM_API_KEY`（放在 `.env`，不提交）
+- **API Key**: 用户在前端页面输入，存到浏览器 `localStorage`
 
 ### 文件结构
 
@@ -31,7 +32,8 @@ src/
 │   └── ResultCard.tsx          # 结果展示（技能/强化/装备卡片）
 ├── services/
 │   ├── champion.ts             # 英雄模糊匹配（别名表 + 精确/部分匹配）
-│   └── ai.ts                   # GLM-4.7 调用（identifyChampion 兜底识别）
+│   ├── ai.ts                   # GLM-4.7 调用（identifyChampion 兜底识别）
+│   └── apiKey.ts               # 浏览器本地 API Key 读写
 └── data/
     ├── champions.json          # 172 个英雄（来自 Data Dragon 16.5.1）
     ├── augments.json           # 202 个海克斯大乱斗强化（来自 apexlol.info）
@@ -71,11 +73,11 @@ pnpm dev      # 开发服务器
 pnpm build    # 生产构建
 ```
 
-## 环境变量
+## GitHub Pages 部署
 
-```
-VITE_GLM_API_KEY=your_api_key_here
-```
+- `vite.config.ts` 使用相对 `base`，适配仓库子路径部署
+- `.github/workflows/deploy-pages.yml` 会在 `main` 分支推送后自动构建并发布
+- Pages 为公开静态托管，不能内置平台级密钥；当前采用“用户自行输入 API Key”的模式
 
 ## 自定义 Slash Command
 
