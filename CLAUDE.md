@@ -1,103 +1,90 @@
-# 海克斯大乱斗菜鸟指北 (Hextech Chaos Noob Guide)
+# 海克斯大乱斗菜鸟指北
 
-## 项目定义
+> **归档约定**：每次修改本文件前，先将旧版本复制到 `Archive/CLAUDE-vX-描述.md`，再覆盖本文件。
 
-面向英雄联盟「海克斯大乱斗」模式新手的网页工具。用户输入英雄名字，立刻获得三样东西：技能推荐、海克斯推荐、装备推荐。
+## 项目简介
 
-## MVP 范围（当前阶段，只做这些）
+面向英雄联盟「海克斯大乱斗」模式的网页查询工具。输入英雄名字，立刻获得：技能加点顺序、海克斯强化推荐（按适配优先级排序）、装备推荐。
 
-一个单页面，包含：
-1. 一个输入框：用户输入英雄名字（如"石头人"、"金克丝"）
-2. 点击查询后，调用 AI 返回该英雄在海克斯大乱斗中的三项推荐
-3. 结果以纯文字展示，分三个区块：
-   - **技能加点**：推荐的技能升级顺序和理由
-   - **海克斯推荐**：推荐的海克斯强化（分银/金/棱彩三档各推荐）和理由
-   - **装备推荐**：推荐的出装路线（含鞋子）和理由
+## 当前架构（MVP 已完成）
 
-就这些。不需要本地数据、不需要路由、不需要多个页面。
+### 核心设计原则
 
-## 技术选型
+- **数据静态化**：技能加点、海克斯强化、装备全部来自本地 JSON，不依赖 AI 生成
+- **AI 仅做兜底**：只在本地模糊匹配失败时，调用 GLM-4.7 识别英雄名（极短调用，max_tokens=20）
+- **无后端**：纯前端，浏览器直接调用 AI API
+
+### 技术栈
 
 - **前端**: React + TypeScript + Tailwind CSS
-- **AI**: 智谱 BigModel GLM-4.7 API（通过浏览器端直接调用）
-- **构建工具**: Vite
-- **包管理**: pnpm
+- **构建**: Vite + pnpm
+- **AI**: 智谱 BigModel GLM-4.7（`https://open.bigmodel.cn/api/paas/v4/chat/completions`）
+- **API Key**: 环境变量 `VITE_GLM_API_KEY`（放在 `.env`，不提交）
 
-## 项目结构（保持最简）
-
-```
-hextech-guide/
-├── CLAUDE.md
-├── index.html
-├── package.json
-├── tsconfig.json
-├── vite.config.ts
-├── tailwind.config.js
-├── postcss.config.js
-├── .env                    # VITE_GLM_API_KEY=xxx
-└── src/
-    ├── main.tsx            # 入口
-    ├── App.tsx             # 唯一的页面组件
-    ├── components/
-    │   ├── SearchBar.tsx   # 输入框 + 查询按钮
-    │   └── ResultCard.tsx  # 推荐结果展示卡片
-    ├── services/
-    │   └── ai.ts           # GLM-4 API 调用封装
-    └── index.css           # Tailwind 入口
-```
-
-不需要 types 目录、不需要 data 目录、不需要 utils 目录。
-
-## AI 调用设计
-
-### Prompt 模板
-
-调用 GLM-4 时使用如下 system prompt：
+### 文件结构
 
 ```
-你是一位英雄联盟「海克斯大乱斗」模式的资深玩家。用户会给你一个英雄名字，请针对该英雄在海克斯大乱斗模式中给出以下三项推荐：
-
-1. 【技能加点】推荐的技能升级优先级（如 Q>E>W），简要说明理由
-2. 【海克斯推荐】分银色、金色、棱彩三个品阶，各推荐 2-3 个适合该英雄的海克斯强化，说明理由
-3. 【装备推荐】推荐一套核心出装（含鞋子，共 6 件），说明出装思路
-
-请用中文回答，简洁实用，直接给结论和理由，不要废话。
+src/
+├── App.tsx                     # 主组件，搜索逻辑
+├── components/
+│   ├── SearchBar.tsx           # 输入框 + 查询按钮
+│   └── ResultCard.tsx          # 结果展示（技能/强化/装备卡片）
+├── services/
+│   ├── champion.ts             # 英雄模糊匹配（别名表 + 精确/部分匹配）
+│   └── ai.ts                   # GLM-4.7 调用（identifyChampion 兜底识别）
+└── data/
+    ├── champions.json          # 172 个英雄（来自 Data Dragon 16.5.1）
+    ├── augments.json           # 202 个海克斯大乱斗强化（来自 apexlol.info）
+    └── recommendations.json    # 45 个英雄的静态推荐数据
 ```
 
-### 调用方式
+### 数据说明
 
-- 使用 fetch 直接调用智谱 API（`https://open.bigmodel.cn/api/paas/v4/chat/completions`）
-- API Key 从环境变量 `VITE_GLM_API_KEY` 读取
-- 使用 streaming 模式，让用户看到逐字输出
-- 请求时显示 loading 状态，出错时显示错误提示
+**`augments.json`**
+- 来源：apexlol.info/zh（海克斯大乱斗专属强化池）
+- 注意：不能使用 Community Dragon `cdragon/arena/` 端点，那是斗魂竞技场数据，两者强化池不同
+- 结构：`{ silver: [{name}], gold: [{name}], prismatic: [{name}] }`
+- 用途：在 ResultCard 中为每个强化显示品阶角标（银/金/彩）
 
-## UI 要求
+**`recommendations.json`**
+- 每个英雄包含：`skillOrder`、`skillNote`、`items {S,A,avoid}`、`augments {S,A,avoid}`、`summary?`
+- `augments` 为扁平结构，按推荐优先级排序（不分品阶分组），品阶仅作为角标展示
+- 强化名必须与 `augments.json` 中的名称完全一致，否则角标不显示
 
-- 简洁干净，深色主题（贴合游戏氛围）
-- 移动端友好（游戏时可能用手机查）
-- 输入框支持回车提交
-- 结果区域的三个板块用卡片区分（技能 / 海克斯 / 装备）
-- 支持 streaming 输出时的打字机效果
+**`champions.json`**
+- 来源：Data Dragon 16.5.1
+- 结构：`{ [id]: { zhName, tags } }`
 
-## 编码规范
+### 强化显示逻辑
 
-- 函数式组件 + Hooks
-- 中文注释，英文变量名
-- 总共不超过 5-6 个文件，保持极简
+ResultCard 中为每个强化名查找品阶：
+```
+augments.json → name→tier 反查表 → 显示 银/金/彩 角标
+```
+S/A/差 三行，差级条目带删除线。
 
-## 第一次产出的验收标准
+## 开发命令
 
-Claude Code 完成后，我应该能：
-1. `pnpm install && pnpm dev` 启动
-2. 在输入框输入"石头人"
-3. 看到 AI 流式输出该英雄的技能、海克斯、装备推荐
-4. 没有报错，样式整洁
+```bash
+pnpm install
+pnpm dev      # 开发服务器
+pnpm build    # 生产构建
+```
 
-## 不要做的事
+## 环境变量
 
-- ❌ 不要加本地 JSON 数据文件（MVP 全部走 AI）
-- ❌ 不要加路由或多页面
-- ❌ 不要加截图识别
-- ❌ 不要加英雄头像/图标等静态资源
-- ❌ 不要过度设计组件结构，能在一个文件写完的不要拆
-- ❌ 不要加任何后端
+```
+VITE_GLM_API_KEY=your_api_key_here
+```
+
+## 自定义 Slash Command
+
+`.claude/commands/update-lol-data.md` — `/update-lol-data`
+
+更新强化数据时使用：从 apexlol.info/zh 抓取最新海克斯大乱斗强化列表，与当前 augments.json 对比，确认后更新文件。
+
+## 待改进
+
+- 覆盖英雄数量：当前 45 个，172 个英雄中大多数暂无数据
+- 推荐数据需经实际对局验证后持续修正
+- 强化名称可能随版本更新变化，需定期执行 `/update-lol-data`
